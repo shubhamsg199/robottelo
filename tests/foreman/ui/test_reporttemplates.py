@@ -557,3 +557,41 @@ def test_positive_gen_entitlements_reports_multiple_formats(
             tree_result = etree.tostring(tree.getroot(), pretty_print=True, method='html').decode()
         assert client.hostname in tree_result
         assert DEFAULT_SUBSCRIPTION_NAME in tree_result
+
+@pytest.mark.tier3
+def test_verify_preview_name_report(session, module_org, module_loc):
+    """
+    :CaseImportance: Medium
+    """
+    name = gen_string('alpha')
+    content = gen_string('alpha')
+    input_name = gen_string('alpha')
+    template_user_input_name = gen_string('alpha')
+    preview_option = ""
+    template_input = [
+        {
+            'name': input_name,
+            'required': True,
+            'input_type': 'User input',
+            'input_content.description': gen_string('alpha'),
+        }
+    ]
+    with session:
+        # CREATE report template
+        session.reporttemplate.create(
+            {
+                'template.name': name,
+                'template.default': False,
+                'template.template_editor.editor': content,
+                'template.audit_comment': gen_string('alpha'),
+                'inputs': template_input,
+                'type.snippet': False,
+                'organizations.resources.assigned': [module_org.name],
+                'locations.resources.assigned': [module_loc.name],
+                'template.template_preview.preview': preview_option,
+            }
+        )
+        # READ report template
+        rt = session.reporttemplate.read(name)
+        assert rt['template']['name'] == name
+        assert rt['template']['template_preview']['preview'] == preview_option
