@@ -1,0 +1,51 @@
+SERVER:
+  # Server hostnames, a list of one or more dns-resolvable hostnames
+  HOSTNAMES:
+    - dhcp-2-123.vms.sat.rdu2.redhat.com
+  #  - dhcp-3-49.vms.sat.rdu2.redhat.com
+  #  - replace-with-satellite-hostname
+  #  - replace-with-satellite-hostname
+  VERSION:
+    # The full release version (6.9.2)
+    RELEASE: 6.10
+    # The snap version currently testing (if applicable)
+    # SNAP: 10
+    # The source of Satellite packages. Can be one of:
+    # internal, ga, beta
+    SOURCE: internal
+  # run-on-one - All xdist runners default to one satellite
+  # balance - xdist runners will be split between available satellites
+  # on-demand - any xdist runner without a satellite will have a new one provisioned.
+  XDIST_BEHAVIOR: on-demand
+  # If one or more Satellites are provisioned,
+  # this setting determines if it will be automatically checked in
+  AUTO_CHECKIN: true
+  # If an inventory filter is set and the xdist-behavior is on-demand
+  # then broker will attempt to find hosts matching the filter defined
+  # before checking out a new host
+  # Filter format follows Broker's specification: "hostname<sat"
+  INVENTORY_FILTER: name<sat-jenkins
+  # The Ansible Tower workflow used to deploy a satellite
+  DEPLOY_WORKFLOW: deploy-sat-jenkins
+  # Path to private ssh key to be used when connecting via SSH.
+  # Path to private ssh key to be used when connecting via SSH
+  # A robottelo containers ssh key path
+  SSH_KEY:
+  # HTTP scheme when building the server URL
+  SCHEME: https
+  # Server port
+  PORT: 443
+  # SSH username
+  SSH_USERNAME: root
+  # SSH password if not using a SSH key to connect
+  SSH_PASSWORD: dog8code
+  # Admin username when accessing API and UI
+  ADMIN_USERNAME: admin
+  # Admin password when accessing API and UI
+  ADMIN_PASSWORD: changeme
+
+  SSH_CLIENT:
+      # Time to wait for the ssh command to finish, in seconds
+    COMMAND_TIMEOUT: 300000
+      # Time to wait for establishing the ssh connection, in seconds
+    CONNECTION_TIMEOUT: 60
