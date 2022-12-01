@@ -1,5 +1,6 @@
 import ipaddress
 import os
+import re
 from tempfile import mkstemp
 
 import pytest
@@ -12,6 +13,7 @@ from robottelo import constants
 from robottelo.api.utils import enable_rhrepo_and_fetchid
 from robottelo.api.utils import wait_for_tasks
 from robottelo.config import settings
+from robottelo.constants import PXE_LOADER_MAP
 from robottelo.hosts import ContentHost
 
 
@@ -27,13 +29,9 @@ def module_provisioning_capsule(module_target_sat, module_location):
 def module_provisioning_rhel_content(
     request,
     module_provisioning_sat,
-    module_provisioning_capsule,
     module_sca_manifest_org,
     module_lce_library,
     module_default_org_view,
-    module_location,
-    default_architecture,
-    default_partitiontable,
 ):
     """
     This fixture sets up kickstart repositories for a specific RHEL version
@@ -84,39 +82,7 @@ def module_provisioning_rhel_content(
         environment=module_lce_library,
     ).create()
 
-    host_root_pass = settings.provisioning.host_root_password
-    pxe_loader = "PXELinux BIOS"  # TODO: Make this a fixture parameter
-
-    hostgroup = sat.api.HostGroup(
-        organization=[module_sca_manifest_org],
-        location=[module_location],
-        architecture=default_architecture,
-        domain=module_provisioning_sat.domain,
-        content_source=module_provisioning_capsule.id,
-        content_view=module_default_org_view,
-        kickstart_repository=ksrepo,
-        lifecycle_environment=module_lce_library,
-        root_pass=host_root_pass,
-        operatingsystem=os,
-        ptable=default_partitiontable,
-        subnet=module_provisioning_sat.subnet,
-        pxe_loader=pxe_loader,
-        group_parameters_attributes=[
-            {
-                'name': 'remote_execution_ssh_keys',
-                'parameter_type': 'string',
-                'value': settings.provisioning.host_ssh_key_pub,
-            },
-            # assign AK in order the hosts to be subscribed
-            {
-                'name': 'kt_activation_keys',
-                'parameter_type': 'string',
-                'value': ak.name,
-            },
-        ],
-    ).create()
-
-    return Box(hostgroup=hostgroup, os=os, ksrepo=ksrepo)
+    return Box(os=os, ak=ak, ksrepo=ksrepo)
 
 
 @pytest.fixture(scope='module')
@@ -200,10 +166,10 @@ def module_ssh_key_file():
 
 
 @pytest.fixture()
-def provisioning_host(module_ssh_key_file, request):
+def provisioning_host(module_ssh_key_file, pxe_loader):
     """Fixture to check out blank VM"""
     vlan_id = settings.provisioning.vlan_id
-    vm_firmware = 'bios' if not hasattr(request, 'param') else request.param
+    vm_firmware = getattr(request, 'param', 'bios')
     cd_iso = (
         ""  # TODO: Make this an optional fixture parameter (update vm_firmware when adding this)
     )
@@ -211,7 +177,7 @@ def provisioning_host(module_ssh_key_file, request):
         workflow="deploy-configure-pxe-provisioning-host-rhv",
         host_class=ContentHost,
         target_vlan_id=vlan_id,
-        target_vm_firmware=vm_firmware,
+        target_vm_firmware=pxe_loader.vm_firmware,
         target_vm_cd_iso=cd_iso,
         blank=True,
         target_memory='6GiB',
@@ -220,3 +186,95 @@ def provisioning_host(module_ssh_key_file, request):
         yield prov_host
         # Set host as non-blank to run teardown of the host
         prov_host.blank = getattr(prov_host, 'blank', False)
+
+
+@pytest.fixture
+def provisioning_hostgroup(
+    module_provisioning_sat,
+    module_sca_manifest_org,
+    module_location,
+    default_architecture,
+    module_provisioning_rhel_content,
+    module_lce_library,
+    default_partitiontable,
+    module_default_org_view,
+    module_provisioning_capsule,
+    pxe_loader,
+):
+    return module_provisioning_sat.sat.api.HostGroup(
+        organization=[module_sca_manifest_org],
+        location=[module_location],
+        architecture=default_architecture,
+        domain=module_provisioning_sat.domain,
+        content_source=module_provisioning_capsule.id,
+        content_view=module_default_org_view,
+        kickstart_repository=module_provisioning_rhel_content.ksrepo,
+        lifecycle_environment=module_lce_library,
+        root_pass=settings.provisioning.host_root_password,
+        operatingsystem=module_provisioning_rhel_content.os,
+        ptable=default_partitiontable,
+        subnet=module_provisioning_sat.subnet,
+        pxe_loader=pxe_loader.pxe_loader,
+        group_parameters_attributes=[
+            {
+                'name': 'remote_execution_ssh_keys',
+                'parameter_type': 'string',
+                'value': settings.provisioning.host_ssh_key_pub,
+            },
+            # assign AK in order the hosts to be subscribed
+            {
+                'name': 'kt_activation_keys',
+                'parameter_type': 'string',
+                'value': module_provisioning_rhel_content.ak.name,
+            },
+        ],
+    ).create()
+
+
+@pytest.fixture
+def pxe_loader(request):
+    """Map the appropriate PXE loader to VM bootloader"""
+    PXE_LOADER_MAP = {
+        'bios': {'vm_firmware': 'bios', 'pxe_loader': 'PXELinux BIOS'},
+        'uefi': {'vm_firmware': 'uefi', 'pxe_loader': 'Grub2 UEFI'},
+    }
+    return Box(PXE_LOADER_MAP[getattr(request, 'param', 'bios')])
+
+@pytest.fixture()
+def pxeless_discovery_host(provisioning_host, module_discovery_sat):
+    """Fixture for returning a pxe-less discovery host for provisioning"""
+    sat = module_discovery_sat.sat
+    image_name = f"{gen_string('alpha')}-{module_discovery_sat.iso}"
+    mac = provisioning_host._broker_args['provisioning_nic_mac_addr']
+    # Remaster and upload discovery image to automatically input values
+    result = sat.execute(
+        'cd /var/www/html/pub && '
+        f'discovery-remaster {module_discovery_sat.iso} '
+        f'"proxy.type=foreman proxy.url=https://{sat.hostname}:443 fdi.pxmac={mac} fdi.pxauto=1"'
+    )
+    pattern = re.compile(r"foreman-discovery-image\S+")
+    fdi = pattern.findall(result.stdout)[0]
+    Broker(
+        workflow='import-disk-image',
+        import_disk_image_name=image_name,
+        import_disk_image_url=(f'https://{sat.hostname}/pub/{fdi}'),
+    ).execute()
+    # Change host to boot from CD ISO
+    Broker(
+        job_template='configure-pxe-boot-rhv',
+        target_host=provisioning_host.name,
+        target_vlan_id=settings.provisioning.vlan_id,
+        target_vm_firmware=provisioning_host._broker_args['target_vm_firmware'],
+        target_vm_cd_iso=image_name,
+        target_boot_scenario='pxeless_pre',
+    ).execute()
+    yield provisioning_host
+    # Remove ISO from host and delete disk image
+    Broker(
+        job_template='configure-pxe-boot-rhv',
+        target_host=provisioning_host.name,
+        target_vlan_id=settings.provisioning.vlan_id,
+        target_vm_firmware=provisioning_host._broker_args['target_vm_firmware'],
+        target_boot_scenario='pxeless_pre',
+    ).execute()
+    Broker(workflow='remove-disk-image', remove_disk_image_name=image_name).execute()
