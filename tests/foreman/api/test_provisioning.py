@@ -137,3 +137,5 @@ def test_rhel_pxe_provisioning(
     # assert that the host is subscribed and consumes
     # subsctiption provided by the activation key
     assert provisioning_host.subscribed, 'Host is not subscribed'
+    print("test")
+qdsd
