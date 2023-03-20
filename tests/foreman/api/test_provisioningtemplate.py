@@ -284,6 +284,8 @@ class TestProvisioningTemplate:
 
         :expectedresults: The rendered provision template has correct network interface.
 
+        :CaseImportance: High
+
         :BZ: 2148433
 
         :customerscenario: true
