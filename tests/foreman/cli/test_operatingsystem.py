@@ -32,7 +32,6 @@ from robottelo.constants import DEFAULT_ORG
 from robottelo.utils.datafactory import filtered_datapoint
 from robottelo.utils.datafactory import invalid_values_list
 from robottelo.utils.datafactory import parametrized
-from robottelo.utils.datafactory import valid_data_list
 
 
 @filtered_datapoint
@@ -44,123 +43,93 @@ def negative_delete_data():
 class TestOperatingSystem:
     """Test class for Operating System CLI."""
 
-    @pytest.mark.tier1
-    def test_positive_search_by_name(self):
-        """Search for newly created OS by name
-
-        :id: ff9f667c-97ca-49cd-902b-a9b18b5aa021
-
-        :expectedresults: Operating System is created and listed
-
-        :CaseImportance: Critical
-        """
-        os_list_before = OperatingSys.list()
-        os = make_os()
-        os_list = OperatingSys.list({'search': 'name=%s' % os['name']})
-        os_info = OperatingSys.info({'id': os_list[0]['id']})
-        assert os['id'] == os_info['id']
-        os_list_after = OperatingSys.list()
-        assert len(os_list_after) > len(os_list_before)
-
-    @pytest.mark.tier1
-    def test_positive_search_by_title(self):
-        """Search for newly created OS by title
-
-        :id: a555e848-f1f2-4326-aac6-9de8ff45abee
-
-        :expectedresults: Operating System is created and listed
-
-        :CaseImportance: Critical
-        """
-        os_list_before = OperatingSys.list()
-        os = make_os()
-        os_list = OperatingSys.list({'search': 'title=\\"%s\\"' % os['title']})
-        os_info = OperatingSys.info({'id': os_list[0]['id']})
-        assert os['id'] == os_info['id']
-        os_list_after = OperatingSys.list()
-        assert len(os_list_after) > len(os_list_before)
-
-    @pytest.mark.tier1
-    def test_positive_list(self):
-        """Displays list for operating system
-
-        :id: fca309c5-edff-4296-a800-55470669935a
-
-        :expectedresults: Operating System is created and listed
-
-        :CaseImportance: Critical
-        """
-        os_list_before = OperatingSys.list()
+    @pytest.mark.e2e
+    @pytest.mark.upgrade
+    def test_positive_end_to_end_os(self, target_sat):
         name = gen_string('alpha')
-        os = make_os({'name': name})
-        os_list = OperatingSys.list({'search': 'name=%s' % name})
-        os_info = OperatingSys.info({'id': os_list[0]['id']})
-        assert os['id'] == os_info['id']
-        os_list_after = OperatingSys.list()
-        assert len(os_list_after) > len(os_list_before)
-
-    @pytest.mark.tier1
-    def test_positive_info_by_id(self):
-        """Displays info for operating system by its ID
-
-        :id: b8f23b53-439a-4726-9757-164d99d5ed05
-
-        :expectedresults: Operating System is created and can be looked up by
-            its ID
-
-        :CaseImportance: Critical
-        """
-        os = make_os()
-        os_info = OperatingSys.info({'id': os['id']})
-        # Info does not return major or minor but a concat of name,
-        # major and minor
-        assert os['id'] == os_info['id']
-        assert os['name'] == os_info['name']
-        assert str(os['major-version']) == os_info['major-version']
-        assert str(os['minor-version']) == os_info['minor-version']
-
-    @pytest.mark.tier1
-    @pytest.mark.parametrize('name', **parametrized(valid_data_list()))
-    def test_positive_create_with_name(self, name):
-        """Create Operating System for all variations of name
-
-        :id: d36eba9b-ccf6-4c9d-a07f-c74eebada89b
-
-        :parametrized: yes
-
-        :expectedresults: Operating System is created and can be found
-
-        :CaseImportance: Critical
-        """
-        os = make_os({'name': name})
-        assert os['name'] == name
-
-    @pytest.mark.tier1
-    def test_positive_create_with_arch_medium_ptable(self):
-        """Create an OS pointing to an arch, medium and partition table.
-
-        :id: 05bdb2c6-0d2e-4141-9e07-3ada3933b577
-
-        :expectedresults: An operating system is created.
-
-        :CaseImportance: Critical
-        """
-        architecture = make_architecture()
-        medium = make_medium()
-        ptable = make_partition_table()
-        operating_system = make_os(
+        desc = gen_string('alpha')
+        os_family = 'Redhat'
+        pass_hash = 'SHA256'
+        minor_version = gen_string('numeric')
+        major_version = gen_string('numeric', 5)
+        architecture = target_sat.cli_factory.make_architecture()
+        medium = target_sat.cli_factory.make_medium()
+        ptable = target_sat.cli_factory.make_partition_table()
+        template = target_sat.cli_factory.make_template()
+        # Create OS
+        os = target_sat.cli.OperatingSys.create(
             {
+                'name': name,
+                'description': desc,
+                'family': os_family,
+                'password-hash': pass_hash,
+                'major': major_version,
+                'minor': minor_version,
                 'architecture-ids': architecture['id'],
                 'medium-ids': medium['id'],
                 'partition-table-ids': ptable['id'],
+                'provisioning-template-ids': template['id'],
             }
         )
-
-        for attr in ('architectures', 'installation-media', 'partition-tables'):
-            assert len(operating_system[attr]) == 1
-        assert operating_system['architectures'][0] == architecture['name']
-        assert operating_system['installation-media'][0] == medium['name']
-        assert operating_system['partition-tables'][0] == ptable['name']
+        assert os['name'] == name
+        assert os['title'] == desc
+        assert os['family'] == os_family
+        assert str(os['major-version']) == major_version
+        assert str(os['minor-version']) == minor_version
+        assert os['architectures'][0] == architecture['name']
+        assert os['installation-media'][0] == medium['name']
+        assert ptable['name'] in os['partition-tables']
+        assert template['name'] in str(os['templates'])
+        # Read OS
+        os = target_sat.cli.OperatingSys.list({'search': f'name={name}'})
+        os = target_sat.cli.OperatingSys.info({'id': os[0]['id']})
+        assert os['name'] == name
+        assert os['title'] == desc
+        assert os['family'] == os_family
+        assert str(os['major-version']) == major_version
+        assert str(os['minor-version']) == minor_version
+        assert os['architectures'][0] == architecture['name']
+        assert ptable['name'] in os['partition-tables']
+        assert template['name'] in str(os['templates'])
+        new_name = gen_string('alpha')
+        new_desc = gen_string('alpha')
+        new_os_family = 'Redhat'
+        new_pass_hash = 'SHA256'
+        new_minor_version = gen_string('numeric')
+        new_major_version = gen_string('numeric', 5)
+        new_architecture = make_architecture()
+        new_medium = make_medium()
+        new_ptable = make_partition_table()
+        new_template = make_template()
+        os = target_sat.cli.OperatingSys.update(
+            {
+                'id': os['id'],
+                'name': new_name,
+                'description': new_desc,
+                'family': new_os_family,
+                'password-hash': new_pass_hash,
+                'major': new_major_version,
+                'minor': new_minor_version,
+                'architecture-ids': new_architecture['id'],
+                'medium-ids': new_medium['id'],
+                'partition-table-ids': new_ptable['id'],
+                'provisioning-template-ids': new_template['id'],
+            }
+        )
+        os = target_sat.cli.OperatingSys.list({'search': f'title={new_desc}'})
+        os = target_sat.cli.OperatingSys.info({'id': os[0]['id']})
+        assert os['name'] == new_name
+        assert os['title'] == new_desc
+        assert os['family'] == new_os_family
+        assert str(os['major-version']) == new_major_version
+        assert str(os['minor-version']) == new_minor_version
+        assert os['architectures'][0] == new_architecture['name']
+        assert os['installation-media'][0] == new_medium['name']
+        assert new_ptable['name'] in os['partition-tables']
+        assert new_template['name'] in str(os['templates'])
+        target_sat.cli.OperatingSys.delete({'id': os['id']})
+        with pytest.raises(CLIReturnCodeError):
+            target_sat.cli.OperatingSys.info({'id': os['id']})
 
     @pytest.mark.tier1
     @pytest.mark.parametrize('name', **parametrized(invalid_values_list()))
@@ -177,42 +146,6 @@ class TestOperatingSystem:
         """
         with pytest.raises(CLIFactoryError):
             make_os({'name': name})
-
-    @pytest.mark.tier1
-    @pytest.mark.parametrize('new_name', **parametrized(valid_data_list()))
-    def test_positive_update_name(self, new_name):
-        """Positive update of operating system name
-
-        :id: 49b655f7-ba9b-4bb9-b09d-0f7140969a40
-
-        :parametrized: yes
-
-        :expectedresults: Operating System name is updated
-
-        :CaseImportance: Critical
-        """
-        os = make_os({'name': gen_alphanumeric()})
-        OperatingSys.update({'id': os['id'], 'name': new_name})
-        result = OperatingSys.info({'id': os['id']})
-        assert result['id'] == os['id']
-        assert result['name'] != os['name']
-
-    @pytest.mark.tier1
-    def test_positive_update_major_version(self):
-        """Update an Operating System's major version.
-
-        :id: 38a89dbe-6d1c-4602-a4c1-664425668de8
-
-        :expectedresults: Operating System major version is updated
-
-        :CaseImportance: Critical
-        """
-        os = make_os()
-        # New value for major
-        major = int(os['major-version']) + 1
-        OperatingSys.update({'id': os['id'], 'major': major})
-        os = OperatingSys.info({'id': os['id']})
-        assert int(os['major-version']) == major
 
     @pytest.mark.tier1
     @pytest.mark.parametrize('new_name', **parametrized(invalid_values_list()))
@@ -232,25 +165,6 @@ class TestOperatingSystem:
             OperatingSys.update({'id': os['id'], 'name': new_name})
         result = OperatingSys.info({'id': os['id']})
         assert result['name'] == os['name']
-
-    @pytest.mark.tier1
-    @pytest.mark.upgrade
-    @pytest.mark.parametrize('name', **parametrized(valid_data_list()))
-    def test_positive_delete_by_id(self, name):
-        """Successfully deletes Operating System by its ID
-
-        :id: a67a7b01-081b-42f8-a9ab-1f41166d649e
-
-        :parametrized: yes
-
-        :expectedresults: Operating System is deleted
-
-        :CaseImportance: Critical
-        """
-        os = make_os({'name': name})
-        OperatingSys.delete({'id': os['id']})
-        with pytest.raises(CLIReturnCodeError):
-            OperatingSys.info({'id': os['id']})
 
     @pytest.mark.tier1
     @pytest.mark.parametrize('test_data', **parametrized(negative_delete_data()))
