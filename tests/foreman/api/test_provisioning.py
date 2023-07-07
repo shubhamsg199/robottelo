@@ -28,8 +28,6 @@ from wait_for import wait_for
 from robottelo.constants import OPERATING_SYSTEMS
 from robottelo.utils.datafactory import invalid_values_list
 from robottelo.utils.datafactory import parametrized
-from robottelo.utils.datafactory import valid_data_list
-from robottelo.utils.issue_handlers import is_open
 
 
 @pytest.mark.e2e
@@ -187,126 +185,125 @@ class TestOperatingSystemParameter:
 class TestOperatingSystem:
     """Tests for operating systems."""
 
-    @pytest.mark.tier1
-    @pytest.mark.parametrize('name', **parametrized(valid_data_list()))
-    def test_positive_create_with_name(self, name, target_sat):
-        """Create operating system with valid name only
+    @pytest.mark.e2e
+    @pytest.mark.upgrade
+    def test_positive_end_to_end_os(self, module_target_sat, module_org, module_architecture):
+        """End-to-end test for Operating system
 
-        :id: e95707bf-3344-4d85-866f-4642a8f66cff
+        :id: ecf2196d-96dd-4ed2-abfa-a5ffade75d91
 
-        :parametrized: yes
+        :steps:
+            1. Create OS
+            2. Check OS is created with all given fields
+            3. Read OS
+            4. Update OS
+            5. Check OS is updated with all given fields
+            6. Delete OS
+            7. Check if OS is deleted
 
-        :expectedresults: Operating system entity is created and has proper
-            name
+        :expectedresults: All CRUD operations are performed successfully.
 
-        :CaseImportance: Critical
+        :BZ: 2101435, 1230902
         """
-        os = target_sat.api.OperatingSystem(name=name).create()
-        assert os.name == name
-
-    @pytest.mark.tier1
-    @pytest.mark.parametrize('os_family', **parametrized(OPERATING_SYSTEMS))
-    def test_positive_create_with_os_family(self, os_family, target_sat):
-        """Create operating system with every OS family possible
-
-        :id: 6ad32d22-53cc-4bab-ac10-f466f75d7cc6
-
-        :parametrized: yes
-
-        :expectedresults: Operating system entity is created and has proper OS
-            family assigned
-
-        :CaseAutomation: Automated
-
-        :CaseImportance: Critical
-        """
-        if is_open('BZ:1709683') and os_family == 'Debian':
-            pytest.skip("BZ 1709683")
-        os = target_sat.api.OperatingSystem(family=os_family).create()
-        assert os.family == os_family
-
-    @pytest.mark.tier1
-    def test_positive_create_with_minor_version(self, target_sat):
-        """Create operating system with minor version
-
-        :id: fc2e36ca-eb5c-440b-957e-390cd9820945
-
-        :expectedresults: Operating system entity is created and has proper
-            minor version
-
-        :CaseImportance: Critical
-        """
+        name = gen_string('alpha')
+        desc = gen_string('alpha')
+        os_family = 'Redhat'
         minor_version = gen_string('numeric')
-        os = target_sat.api.OperatingSystem(minor=minor_version).create()
-        assert os.minor == minor_version
-
-    @pytest.mark.tier1
-    def test_positive_read_minor_version_as_string(self, target_sat):
-        """Create an operating system with an integer minor version.
-
-        :id: b45e0b94-62f7-45ff-a19e-83c7a0f51339
-
-        :expectedresults: The minor version can be read back as a string.
-
-        :CaseImportance: Critical
-
-        :BZ: 1230902
-        """
-        minor = int(gen_string('numeric', random.randint(1, 16)))
-        operating_sys = target_sat.api.OperatingSystem(minor=minor).create()
-        assert operating_sys.minor == str(minor)
-
-    @pytest.mark.tier1
-    @pytest.mark.parametrize('desc', **parametrized(valid_data_list()))
-    def test_positive_create_with_description(self, desc, target_sat):
-        """Create operating system with description
-
-        :id: 980e6411-da11-4fec-ae46-47722367ae40
-
-        :parametrized: yes
-
-        :expectedresults: Operating system entity is created and has proper
-            description
-
-        :CaseImportance: Critical
-        """
-        name = gen_string('utf8')
-        os = target_sat.api.OperatingSystem(name=name, description=desc).create()
+        major_version = gen_string('numeric', 5)
+        pass_hash = 'SHA256'
+        ptable = module_target_sat.api.PartitionTable().create()
+        medium = module_target_sat.api.Media(organization=[module_org]).create()
+        template = module_target_sat.api.ProvisioningTemplate(
+            organization=[module_org],
+        ).create()
+        # Create OS
+        os = module_target_sat.api.OperatingSystem(
+            name=name,
+            description=desc,
+            minor=minor_version,
+            major=major_version,
+            family=os_family,
+            architecture=[module_architecture],
+            password_hash=pass_hash,
+            provisioning_template=[template],
+            ptable=[ptable],
+            medium=[medium],
+        ).create()
         assert os.name == name
+        assert os.family == os_family
+        assert os.minor == str(minor_version)
+        assert os.major == major_version
         assert os.description == desc
-
-    @pytest.mark.tier1
-    @pytest.mark.parametrize('pass_hash', **parametrized(('SHA256', 'SHA512')))
-    def test_positive_create_with_password_hash(self, pass_hash, target_sat):
-        """Create operating system with valid password hash option
-
-        :id: 00830e71-b414-41ab-bc8f-03fd2fbd5a84
-
-        :parametrized: yes
-
-        :expectedresults: Operating system entity is created and has proper
-            password hash type
-
-        :CaseImportance: Critical
-        """
-        os = target_sat.api.OperatingSystem(password_hash=pass_hash).create()
+        assert os.architecture[0].id == module_architecture.id
         assert os.password_hash == pass_hash
-
-    @pytest.mark.tier2
-    def test_positive_create_with_arch(self, target_sat):
-        """Create an operating system that points at an architecture.
-
-        :id: 6a3f7183-b0bf-4834-8c69-a49fe8d7ee5a
-
-        :expectedresults: The operating system is created and points at the
-            given architecture.
-
-        :CaseLevel: Integration
-        """
-        arch = target_sat.api.Architecture().create()
-        operating_sys = target_sat.api.OperatingSystem(architecture=[arch]).create()
-        assert len(operating_sys.architecture) == 1
-        assert operating_sys.architecture[0].id == arch.id
+        assert os.ptable[0].id == ptable.id
+        assert os.provisioning_template[0].id == template.id
+        assert os.medium[0].id == medium.id
+        # Read OS
+        os = module_target_sat.api.OperatingSystem(id=os.id).read()
+        assert os.name == name
+        assert os.family == os_family
+        assert os.minor == minor_version
+        assert os.major == major_version
+        assert os.description == desc
+        assert os.architecture[0].id == module_architecture.id
+        assert os.password_hash == pass_hash
+        assert str(ptable.id) in str(os.ptable)
+        assert str(template.id) in str(os.provisioning_template)
+        assert os.medium[0].id == medium.id
+        new_name = gen_string('alpha')
+        new_desc = gen_string('alpha')
+        new_os_family = 'Rhcos'
+        new_minor_version = gen_string('numeric')
+        new_major_version = gen_string('numeric', 5)
+        new_pass_hash = 'SHA512'
+        new_arch = module_target_sat.api.Architecture().create()
+        new_ptable = module_target_sat.api.PartitionTable().create()
+        new_medium = module_target_sat.api.Media(organization=[module_org]).create()
+        new_template = module_target_sat.api.ProvisioningTemplate(
+            organization=[module_org]
+        ).create()
+        # Update OS
+        os = module_target_sat.api.OperatingSystem(
+            id=os.id,
+            name=new_name,
+            description=new_desc,
+            minor=new_minor_version,
+            major=new_major_version,
+            family=new_os_family,
+            architecture=[new_arch],
+            password_hash=new_pass_hash,
+            provisioning_template=[new_template],
+            ptable=[new_ptable],
+            medium=[new_medium],
+        ).update(
+            [
+                'name',
+                'description',
+                'minor',
+                'major',
+                'family',
+                'architecture',
+                'password_hash',
+                'provisioning_template',
+                'ptable',
+                'medium',
+            ]
+        )
+        assert os.name == new_name
+        assert os.family == new_os_family
+        assert os.minor == new_minor_version
+        assert os.major == new_major_version
+        assert os.description == new_desc
+        assert os.architecture[0].id == new_arch.id
+        assert os.password_hash == new_pass_hash
+        assert os.ptable[0].id == new_ptable.id
+        assert os.provisioning_template[0].id == new_template.id
+        assert os.medium[0].id == new_medium.id
+        # Delete OS
+        module_target_sat.api.OperatingSystem(id=os.id).delete()
+        with pytest.raises(HTTPError):
+            module_target_sat.api.OperatingSystem(id=os.id).read()
 
     @pytest.mark.tier2
     def test_positive_create_with_archs(self, target_sat):
@@ -327,22 +324,6 @@ class TestOperatingSystem:
         assert {arch.id for arch in operating_sys.architecture} == {arch.id for arch in archs}
 
     @pytest.mark.tier2
-    def test_positive_create_with_ptable(self, target_sat):
-        """Create an operating system that points at a partition table.
-
-        :id: bef37ff9-d8fa-4518-9073-0518aa9f9a42
-
-        :expectedresults: The operating system is created and points at the
-            given partition table.
-
-        :CaseLevel: Integration
-        """
-        ptable = target_sat.api.PartitionTable().create()
-        operating_sys = target_sat.api.OperatingSystem(ptable=[ptable]).create()
-        assert len(operating_sys.ptable) == 1
-        assert operating_sys.ptable[0].id == ptable.id
-
-    @pytest.mark.tier2
     def test_positive_create_with_ptables(self, target_sat):
         """Create an operating system that points at multiple different
         partition tables.
@@ -359,40 +340,6 @@ class TestOperatingSystem:
         operating_sys = target_sat.api.OperatingSystem(ptable=ptables).create()
         assert len(operating_sys.ptable) == len(amount)
         assert {ptable.id for ptable in operating_sys.ptable} == {ptable.id for ptable in ptables}
-
-    @pytest.mark.tier2
-    def test_positive_create_with_media(self, module_org, module_target_sat):
-        """Create an operating system that points at a media.
-
-        :id: 56fadee4-c676-48b6-a2db-e6fef9d2a575
-
-        :expectedresults: The operating system is created and points at the
-            given media.
-
-        :CaseLevel: Integration
-        """
-        medium = module_target_sat.api.Media(organization=[module_org]).create()
-        operating_sys = module_target_sat.api.OperatingSystem(medium=[medium]).create()
-        assert len(operating_sys.medium) == 1
-        assert operating_sys.medium[0].id == medium.id
-
-    @pytest.mark.tier2
-    def test_positive_create_with_template(self, module_org, module_target_sat):
-        """Create an operating system that points at a provisioning template.
-
-        :id: df73ecba-5a1c-4201-9c2f-b2e03e8fec25
-
-        :expectedresults: The operating system is created and points at the
-            expected provisioning template.
-
-        :CaseLevel: Integration
-        """
-        template = module_target_sat.api.ProvisioningTemplate(organization=[module_org]).create()
-        operating_sys = module_target_sat.api.OperatingSystem(
-            provisioning_template=[template]
-        ).create()
-        assert len(operating_sys.provisioning_template) == 1
-        assert operating_sys.provisioning_template[0].id == template.id
 
     @pytest.mark.tier1
     @pytest.mark.parametrize('name', **parametrized(invalid_values_list()))
@@ -509,161 +456,6 @@ class TestOperatingSystem:
         with pytest.raises(HTTPError):
             target_sat.api.OperatingSystem(name=os.name, major=os.major).create()
 
-    @pytest.mark.tier1
-    @pytest.mark.parametrize('new_name', **parametrized(valid_data_list()))
-    def test_positive_update_name(self, new_name, target_sat):
-        """Create operating system entity providing the initial name,
-        then update its name to another valid name.
-
-        :id: 2898e16a-865a-4de6-b2a5-bb0934fc2b76
-
-        :parametrized: yes
-
-        :expectedresults: Operating system entity is created and updated
-            properly
-
-        :CaseImportance: Critical
-        """
-        os = target_sat.api.OperatingSystem().create()
-        os = target_sat.api.OperatingSystem(id=os.id, name=new_name).update(['name'])
-        assert os.name == new_name
-
-    @pytest.mark.tier1
-    @pytest.mark.parametrize('new_desc', **parametrized(valid_data_list()))
-    def test_positive_update_description(self, new_desc, target_sat):
-        """Create operating entity providing the initial description,
-        then update that description to another valid one.
-
-        :id: c809700a-b6ab-4651-9bd0-d0d9bd6a47dd
-
-        :parametrized: yes
-
-        :expectedresults: Operating system entity is created and updated
-            properly
-
-        :CaseImportance: Critical
-        """
-        os = target_sat.api.OperatingSystem(description=gen_string('utf8')).create()
-        os = target_sat.api.OperatingSystem(id=os.id, description=new_desc).update(['description'])
-        assert os.description == new_desc
-
-    @pytest.mark.tier1
-    def test_positive_update_major_version(self, target_sat):
-        """Create operating entity providing the initial major version,
-        then update that version to another valid one.
-
-        :id: e57fd4a3-f0ae-49fb-bd84-9a6ec606a2a2
-
-        :expectedresults: Operating system entity is created and updated
-            properly
-
-        :CaseImportance: Critical
-        """
-        os = target_sat.api.OperatingSystem().create()
-        new_major_version = gen_string('numeric', 5)
-        os = target_sat.api.OperatingSystem(id=os.id, major=new_major_version).update(['major'])
-        assert os.major == new_major_version
-
-    @pytest.mark.tier1
-    def test_positive_update_minor_version(self, target_sat):
-        """Create operating entity providing the initial minor version,
-        then update that version to another valid one.
-
-        :id: ca36f7cf-4487-4743-be06-52c5f47ffe71
-
-        :expectedresults: Operating system entity is created and updated
-            properly
-
-        :CaseImportance: Critical
-        """
-        os = target_sat.api.OperatingSystem(minor=gen_string('numeric')).create()
-        new_minor_version = gen_string('numeric')
-        os = target_sat.api.OperatingSystem(id=os.id, minor=new_minor_version).update(['minor'])
-        assert os.minor == new_minor_version
-
-    @pytest.mark.tier1
-    def test_positive_update_os_family(self, target_sat):
-        """Create operating entity providing the initial os family, then
-        update that family to another valid one from the list.
-
-        :id: 3d1f8fdc-d2de-4277-a0ba-07228a2fae82
-
-        :expectedresults: Operating system entity is created and updated
-            properly
-
-        :CaseImportance: Critical
-        """
-        os = target_sat.api.OperatingSystem(family=OPERATING_SYSTEMS[0]).create()
-        new_os_family = OPERATING_SYSTEMS[random.randint(1, len(OPERATING_SYSTEMS) - 1)]
-        os = target_sat.api.OperatingSystem(id=os.id, family=new_os_family).update(['family'])
-        assert os.family == new_os_family
-
-    @pytest.mark.tier2
-    @pytest.mark.upgrade
-    def test_positive_update_arch(self, target_sat):
-        """Create an operating system that points at an architecture and
-        then update it to point to another architecture
-
-        :id: ad69b4a3-6371-4516-b5ce-f6298edf35b3
-
-        :expectedresults: The operating system is updated and points at the
-            expected architecture.
-
-        :CaseLevel: Integration
-        """
-        arch_1 = target_sat.api.Architecture().create()
-        arch_2 = target_sat.api.Architecture().create()
-        os = target_sat.api.OperatingSystem(architecture=[arch_1]).create()
-        assert len(os.architecture) == 1
-        assert os.architecture[0].id == arch_1.id
-        os = target_sat.api.OperatingSystem(id=os.id, architecture=[arch_2]).update(
-            ['architecture']
-        )
-        assert len(os.architecture) == 1
-        assert os.architecture[0].id == arch_2.id
-
-    @pytest.mark.tier2
-    def test_positive_update_ptable(self, target_sat):
-        """Create an operating system that points at partition table and
-        then update it to point to another partition table
-
-        :id: 0dde5372-4b90-4c83-b497-31e94065adab
-
-        :expectedresults: The operating system is updated and points at the
-            expected partition table.
-
-        :CaseLevel: Integration
-        """
-        ptable_1 = target_sat.api.PartitionTable().create()
-        ptable_2 = target_sat.api.PartitionTable().create()
-        os = target_sat.api.OperatingSystem(ptable=[ptable_1]).create()
-        assert len(os.ptable) == 1
-        assert os.ptable[0].id == ptable_1.id
-        os = target_sat.api.OperatingSystem(id=os.id, ptable=[ptable_2]).update(['ptable'])
-        assert len(os.ptable) == 1
-        assert os.ptable[0].id == ptable_2.id
-
-    @pytest.mark.tier2
-    def test_positive_update_media(self, module_org, module_target_sat):
-        """Create an operating system that points at media entity and
-        then update it to point to another media
-
-        :id: 18b5f6b5-52ab-4722-8412-f0de85ad20fe
-
-        :expectedresults: The operating system is updated and points at the
-            expected media.
-
-        :CaseLevel: Integration
-        """
-        media_1 = module_target_sat.api.Media(organization=[module_org]).create()
-        media_2 = module_target_sat.api.Media(organization=[module_org]).create()
-        os = module_target_sat.api.OperatingSystem(medium=[media_1]).create()
-        assert len(os.medium) == 1
-        assert os.medium[0].id == media_1.id
-        os = module_target_sat.api.OperatingSystem(id=os.id, medium=[media_2]).update(['medium'])
-        assert len(os.medium) == 1
-        assert os.medium[0].id == media_2.id
-
     @pytest.mark.tier2
     @pytest.mark.upgrade
     def test_positive_update_medias(self, module_org, module_target_sat):
@@ -686,30 +478,6 @@ class TestOperatingSystem:
         os = module_target_sat.api.OperatingSystem(id=os.id, medium=medias).update(['medium'])
         assert len(os.medium) == len(amount)
         assert {medium.id for medium in os.medium} == {medium.id for medium in medias}
-
-    @pytest.mark.tier2
-    @pytest.mark.upgrade
-    def test_positive_update_template(self, module_org, module_target_sat):
-        """Create an operating system that points at provisioning template and
-        then update it to point to another template
-
-        :id: 02125a7a-905a-492a-a49b-768adf4ac00c
-
-        :expectedresults: The operating system is updated and points at the
-            expected provisioning template.
-
-        :CaseLevel: Integration
-        """
-        template_1 = module_target_sat.api.ProvisioningTemplate(organization=[module_org]).create()
-        template_2 = module_target_sat.api.ProvisioningTemplate(organization=[module_org]).create()
-        os = module_target_sat.api.OperatingSystem(provisioning_template=[template_1]).create()
-        assert len(os.provisioning_template) == 1
-        assert os.provisioning_template[0].id == template_1.id
-        os = module_target_sat.api.OperatingSystem(
-            id=os.id, provisioning_template=[template_2]
-        ).update(['provisioning_template'])
-        assert len(os.provisioning_template) == 1
-        assert os.provisioning_template[0].id == template_2.id
 
     @pytest.mark.tier1
     @pytest.mark.parametrize('new_name', **parametrized(invalid_values_list()))
@@ -776,22 +544,3 @@ class TestOperatingSystem:
         os = target_sat.api.OperatingSystem(family=OPERATING_SYSTEMS[0]).create()
         with pytest.raises(HTTPError):
             target_sat.api.OperatingSystem(id=os.id, family='NON_EXISTENT_OS').update(['family'])
-
-    @pytest.mark.tier1
-    @pytest.mark.upgrade
-    @pytest.mark.parametrize('name', **parametrized(valid_data_list()))
-    def test_positive_delete_os(self, name, target_sat):
-        """Create new operating system entity and then delete it.
-
-        :id: 3dbffb56-ad99-441d-921c-0fad6504d257
-
-        :parametrized: yes
-
-        :expectedresults: Operating System entity is deleted successfully
-
-        :CaseImportance: Critical
-        """
-        os = target_sat.api.OperatingSystem(name=name).create()
-        os.delete()
-        with pytest.raises(HTTPError):
-            os.read()
