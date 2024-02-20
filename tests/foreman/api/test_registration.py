@@ -329,7 +329,7 @@ def test_positive_host_registration_with_non_admin_user_with_setup_false(
 
 
 @pytest.mark.rhel_ver_match('[^6]')
-def test_negative_generate_curl_command_and_fail_registration_intentionally(
+def test_negative_verify_bash_exit_status_failing_host_registration(
     module_sca_manifest_org,
     module_location,
     module_target_sat,
@@ -343,20 +343,24 @@ def test_negative_generate_curl_command_and_fail_registration_intentionally(
         1. Generate a curl command and make the registration fail intentionally.
         2. Check the exit code for the command.
 
-    :expectedresults: Exit code returns 1 if registration fails and returns 0 otherwise.
+    :expectedresults: Exit code returns 1 if registration fails.
 
     :BZ: 2155444
 
     :customerscenario: true
+
+    :parametrized: yes
     """
-    ac_key = module_target_sat.api.ActivationKey(unlimited_hosts=True).create()
+    ac_key_name = gen_string('alpha')
+    ac_key = module_target_sat.api.ActivationKey(name=ac_key_name).create()
+    # create RegistrationCommand with invalid activation_keys
     command = module_target_sat.api.RegistrationCommand(
         organization=module_sca_manifest_org,
-        activation_keys=[ac_key.name],
+        activation_keys=[ac_key.name],  # activation_keys generated only with name parameter
         location=module_location,
     ).create()
     result = rhel_contenthost.execute(command)
-    if 'The system has been registered' in result.stdout:
-        assert result.status == 0
-    else:
-        assert result.status == 1
+    assert result.status == 1
+    assert "Couldn't find activation key" in result.stderr
+
+
