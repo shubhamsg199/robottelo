@@ -614,7 +614,7 @@ REPOS = {
         'rhel10_bos_beta': {
             'id': 'rhel-10-for-x86_64-baseos-beta-kickstart',
             'name': 'Red Hat Enterprise Linux 10 for x86_64 - BaseOS Beta Kickstart',
-            'version': '10',
+            'version': '10.0',
             'reposet': REPOSET['kickstart']['rhel10_bos_beta'],
             'product': PRDS['rhel10_beta'],
             'distro': 'rhel10',
@@ -622,7 +622,7 @@ REPOS = {
         'rhel10_aps_beta': {
             'id': 'rhel-10-for-x86_64-appstream-beta-kickstart',
             'name': 'Red Hat Enterprise Linux 10 for x86_64 - AppStream Beta Kickstart',
-            'version': '10',
+            'version': '10.0',
             'reposet': REPOSET['kickstart']['rhel10_aps_beta'],
             'product': PRDS['rhel10_beta'],
             'distro': 'rhel10',

@@ -67,11 +67,14 @@ def module_sync_kickstart_content(
     rhel_ver = request.param['rhel_version']
     if int(rhel_ver) <= 7:
         repo_names.append(f'rhel{rhel_ver}')
+        rhel_xy = Version(constants.REPOS['kickstart'][f'rhel{rhel_ver}']['version'])
     # Using RHEL10 Beta repos until its GA
     elif int(rhel_ver) == 10:
         repo_names.append(f'rhel{rhel_ver}_bos_beta')
+        rhel_xy = Version(constants.REPOS['kickstart'][f'rhel{rhel_ver}_bos_beta']['version'])
     else:
         repo_names.append(f'rhel{rhel_ver}_bos')
+        rhel_xy = Version(constants.REPOS['kickstart'][f'rhel{rhel_ver}_bos']['version'])
     for name in repo_names:
         rh_kickstart_repo_id = module_target_sat.api_factory.enable_rhrepo_and_fetchid(
             basearch=constants.DEFAULT_ARCHITECTURE,
@@ -91,11 +94,6 @@ def module_sync_kickstart_content(
         )
         task_status = module_target_sat.api.ForemanTask(id=task['id']).poll()
         assert task_status['result'] == 'success'
-    rhel_xy = Version(
-        constants.REPOS['kickstart'][f'rhel{rhel_ver}']['version']
-        if rhel_ver == 7
-        else constants.REPOS['kickstart'][f'rhel{rhel_ver}_bos']['version']
-    )
     o_systems = module_target_sat.api.OperatingSystem().search(
         query={'search': f'family=Redhat and major={rhel_xy.major} and minor={rhel_xy.minor}'}
     )
