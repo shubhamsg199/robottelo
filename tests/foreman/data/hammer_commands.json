@@ -825,6 +825,12 @@
           "name": "product-content",
           "options": [
             {
+              "help": "Get all content available, not just that provided by subscriptions",
+              "name": "content-access-mode-all",
+              "shortname": null,
+              "value": "BOOLEAN"
+            },
+            {
               "help": "Limit content to just that available in the activation key's content view version",
               "name": "content-access-mode-env",
               "shortname": null,
@@ -24745,6 +24751,12 @@
               "name": "product-content",
               "options": [
                 {
+                  "help": "Get all content available, not just that provided by subscriptions",
+                  "name": "content-access-mode-all",
+                  "shortname": null,
+                  "value": "BOOLEAN"
+                },
+                {
                   "help": "Limit content to just that available in the host's content view version",
                   "name": "content-access-mode-env",
                   "shortname": null,
@@ -44592,6 +44604,12 @@
               "value": null
             },
             {
+              "help": "Get all content available, not just that provided by subscriptions",
+              "name": "content-access-mode-all",
+              "shortname": null,
+              "value": "BOOLEAN"
+            },
+            {
               "help": "Limit content to just that available in the host's or activation key's content view version and lifecycle environment.",
               "name": "content-access-mode-env",
               "shortname": null,
@@ -47262,8 +47280,50 @@
               "value": "LIST"
             },
             {
+              "help": "Activation key name/id",
+              "name": "activation-key",
+              "shortname": null,
+              "value": "VALUE"
+            },
+            {
+              "help": "Activation key name/id",
+              "name": "activation-key-id",
+              "shortname": null,
+              "value": "VALUE"
+            },
+            {
+              "help": "Object to show subscriptions available for, either 'host' or 'activation_key'",
+              "name": "available-for",
+              "shortname": null,
+              "value": "VALUE"
+            },
+            {
               "help": "Whether or not to show all results",
               "name": "full-result",
+              "shortname": null,
+              "value": "BOOLEAN"
+            },
+            {
+              "help": "Name/id of a host",
+              "name": "host",
+              "shortname": null,
+              "value": "VALUE"
+            },
+            {
+              "help": "Name/id of a host",
+              "name": "host-id",
+              "shortname": null,
+              "value": "VALUE"
+            },
+            {
+              "help": "Ignore subscriptions that are unavailable to the specified host",
+              "name": "match-host",
+              "shortname": null,
+              "value": "BOOLEAN"
+            },
+            {
+              "help": "Return subscriptions that match installed products of the specified host",
+              "name": "match-installed",
               "shortname": null,
               "value": "BOOLEAN"
             },
@@ -47272,6 +47332,12 @@
               "name": "name",
               "shortname": null,
               "value": "VALUE"
+            },
+            {
+              "help": "Return subscriptions which do not overlap with a currently-attached subscription",
+              "name": "no-overlap",
+              "shortname": null,
+              "value": "BOOLEAN"
             },
             {
               "help": "Sort field and order, eg. 'id DESC'",
