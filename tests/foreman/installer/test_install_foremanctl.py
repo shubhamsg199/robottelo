@@ -125,6 +125,55 @@ def test_positive_check_installer_hammer_ping(module_sat_ready_rhel):
             assert 'ok' in line
 
 
+@pytest.fixture(scope='module')
+def module_sat_foremanctl_custom_certs():
+    with Broker(
+        workflow=settings.server.deploy_workflows.os,
+        deploy_rhel_version=settings.server.version.rhel_version,
+        deploy_flavor=settings.flavors.default,
+        deploy_network_type=settings.server.network_type,
+        host_class=Satellite,
+    ) as sat:
+        sat.custom_cert_generate(sat.hostname)
+        sat.install_satellite_foremanctl(
+            parameters=[
+                f'--server-certificate /root/{sat.hostname}/{sat.hostname}.crt',
+                f'--server-key /root/{sat.hostname}/{sat.hostname}.key',
+                '--server-ca-certificate /root/cacert.crt',
+            ]
+        )
+        yield sat
+
+
+@pytest.mark.e2e
+def test_positive_install_foremanctl_with_custom_certs(module_sat_foremanctl_custom_certs):
+    """Install Satellite via foremanctl deploy with custom certificates.
+
+    :id: aca40725-8884-454e-8a67-428ce3292660
+
+    :steps:
+        1. Generate custom CA and server certificates
+        2. Install Satellite using foremanctl deploy with custom cert flags
+        3. Assert hammer ping reports no SSL certificate errors
+        4. Assert all services are running
+
+    :expectedresults: Satellite is installed with custom certs and all services are healthy.
+
+    :CaseAutomation: Automated
+    """
+    sat = module_sat_foremanctl_custom_certs
+    common_sat_install_assertions(sat)
+    result = sat.execute('hammer ping')
+    assert result.status == 0
+    assert result.stdout.count('Status:') == result.stdout.count(' ok')
+    # Verify the served certificate has the expected CN
+    result = sat.execute(
+        f'echo | openssl s_client -connect {sat.hostname}:443 -servername {sat.hostname} '
+        '2>/dev/null | openssl x509 -noout -subject'
+    )
+    assert f'CN = {sat.hostname}' in result.stdout
+
+
 @pytest.mark.parametrize('module_sat_ready_rhel', ['default'], indirect=True)
 def test_foremanctl_deploy_reset_parameters(module_sat_ready_rhel):
     """Check if foremanctl deploy --reset parameters works
