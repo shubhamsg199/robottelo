@@ -77,12 +77,11 @@ def test_negative_remove_satellite_packages(sat_maintain):
     # but also dependency of dependencies like wget for foreman
     if isinstance(sat_maintain, Satellite):
         package_list = ['foreman', 'foreman-proxy', 'katello', 'wget', 'satellite']
+        error_msg = 'Problem: The operation would result in removing the following protected packages: satellite'
     else:
         package_list = ['foreman-proxy', 'satellite-capsule']
+        error_msg = 'The operation would result in broken dependencies for the following protected packages: satellite-capsule'
     for package in package_list:
         result = sat_maintain.execute(f'yum remove {package}')
         assert result.status != 0
-        assert (
-            'Problem: The operation would result in removing the following protected packages: satellite'
-            in str(result.stderr)
-        )
+        assert error_msg in str(result.stderr)
